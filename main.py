@@ -11,7 +11,6 @@ from pydantic import BaseModel
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-
 # ------------------------------------------------------------------------------
 # 配置
 # ------------------------------------------------------------------------------
@@ -71,7 +70,7 @@ def _fetch_history_from_qweather(location: str, date_str: str) -> List[Dict[str,
     params = {
         "location": location,
         "date": date_str.replace("-", ""),  # YYYYMMDD
-        "key": QWEATHER_API_KEY,  # 兼容部分部署方式，若服务端要求 Header，可调整为 X-QW-Api-Key
+        "key": QWEATHER_API_KEY,  # 兼容部分部署方式；若服务端要求 Header，可调整为 X-QW-Api-Key
     }
 
     resp = requests.get(url, params=params, timeout=15)
@@ -116,7 +115,8 @@ def _convert_hourly(hourly: List[Dict[str, Any]], latitude: Optional[float], lon
             dt = date_parser.parse(ts_raw)
         except Exception:
             continue
-        # 统一为本地时间（若 API 返回 UTC，dateutil 会携带 tz）
+
+        # 统一为本地时间（UTC+8）
         dt_local = dt.astimezone(timezone(timedelta(hours=8)))
         hour_local = dt_local.hour
 
@@ -182,14 +182,31 @@ def _convert_hourly(hourly: List[Dict[str, Any]], latitude: Optional[float], lon
 app = FastAPI(title="ShuZhiYuan History Weather API", version="0.1.0")
 
 
+# ✅ 新增：根路径，避免 Render/浏览器访问 / 时 404
+@app.get("/")
+def root():
+    return {
+        "name": "ShuZhiYuan History Weather API",
+        "status": "ok",
+        "endpoints": {
+            "health": "/health",
+            "docs": "/docs",
+            "history": "/weather/history?location=101010100&date=2025-12-07",
+        },
+        "note": "部署在 Render 上时建议将 Health Check Path 设置为 /health",
+    }
+
+
 @app.get("/health")
 def health():
+    # ✅ 可选：没配 key 也返回 200，只是标记 degraded，保证健康检查稳定通过
+    status = "ok" if QWEATHER_API_KEY else "degraded"
     return {
-        "status": "ok",
-        "qweather_key": bool(QWEATHER_API_KEY),
+        "status": status,
+        "qweather_key_configured": bool(QWEATHER_API_KEY),
         "host": QWEATHER_API_HOST,
         "default_location": WEATHER_DEFAULT_LOCATION or None,
-        "note": "提供历史逐小时天气 + 简易辐照度估算（6~18点按云量折减）"
+        "note": "提供历史逐小时天气 + 简易辐照度估算（6~18点按云量折减）",
     }
 
 
@@ -213,5 +230,6 @@ def weather_history(
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8001)))
 
