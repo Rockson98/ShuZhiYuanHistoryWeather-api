@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: shuzhiyuan-history-weather
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+    plan: free
+    envVars:
+      - key: QWEATHER_API_KEY
+        sync: false
+      - key: QWEATHER_API_HOST
+        sync: false
+      - key: WEATHER_DEFAULT_LOCATION
+        sync: false
+
