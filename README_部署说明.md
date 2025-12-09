@@ -36,6 +36,7 @@
    
    **可选环境变量：**
    - `QWEATHER_API_HOST`: 和风天气 API 主机（默认：`https://devapi.qweather.com`）
+<<<<<<< HEAD
      - **注意**：如果只提供域名（如 `jp4bjaf454.re.qweatherapi.com`），代码会自动添加 `https://` 前缀
    - `WEATHER_DEFAULT_LOCATION`: 默认 Location ID（当不传 `project_id` 或 `location` 时使用）
    - `WEATHER_PROJECTS_JSON`: 项目配置 JSON 字符串（可选，覆盖 `config.py` 中的默认项目）
@@ -74,6 +75,23 @@
      },
      {
        "project_id": "2",
+=======
+   - `WEATHER_DEFAULT_LOCATION`: 默认 Location ID（当不传 `project_id` 或 `location` 时使用）
+   - `WEATHER_PROJECTS_JSON`: 项目配置 JSON 字符串（可选，覆盖 `config.py` 中的默认项目）
+   
+   **WEATHER_PROJECTS_JSON 格式示例：**
+   ```json
+   [
+     {
+       "project_id": "1001",
+       "name": "台山海宴渔光互补项目",
+       "latitude": 21.755591,
+       "longitude": 112.565857,
+       "location_id": "101281101"
+     },
+     {
+       "project_id": "1002",
+>>>>>>> fae5dcba1531764e105e513eb2ab2251a2f4eab0
        "name": "肇庆四会屋顶项目",
        "latitude": 23.376972,
        "longitude": 112.705725,
@@ -135,7 +153,11 @@ curl https://你的服务URL/health
 
 ### 2. 查询历史天气（使用 project_id）
 ```bash
+<<<<<<< HEAD
 curl "https://你的服务URL/weather/history?project_id=1&date=2024-11-28"
+=======
+curl "https://你的服务URL/weather/history?project_id=1001&date=2024-11-28"
+>>>>>>> fae5dcba1531764e105e513eb2ab2251a2f4eab0
 ```
 
 ### 3. 查询历史天气（使用 location）
