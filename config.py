@@ -11,51 +11,21 @@ DEFAULT_PROJECTS: List[Dict[str, Any]] = [
         "name": "台山海宴渔光互补项目",
         "latitude": 21.755591,
         "longitude": 112.565857,
-<<<<<<< HEAD
         "city": "江门市台山市",  # 城市名称（用于显示）
-=======
-<<<<<<< HEAD
-        "city": "江门市台山市",  # 城市名称（用于显示）
-=======
-        "location_id": "101281101",  # 台山 Location ID
-        "location_name": "台山",  # 和风天气API查询用的地区名称
-        "city": "江门市台山市",  # 城市名称
->>>>>>> 811fe8cce37f01040010caaa5377fea7f1d409ab
->>>>>>> 7fd047a98330a9c08dc34b81ae7150142330640d
     },
     {
         "project_id": "2",
         "name": "肇庆四会屋顶项目",
         "latitude": 23.376972,
         "longitude": 112.705725,
-<<<<<<< HEAD
         "city": "肇庆市四会市",  # 城市名称（用于显示）
-=======
-<<<<<<< HEAD
-        "city": "肇庆市四会市",  # 城市名称（用于显示）
-=======
-        "location_id": "101280901",  # 四会 Location ID
-        "location_name": "四会",  # 和风天气API查询用的地区名称
-        "city": "肇庆市四会市",  # 城市名称
->>>>>>> 811fe8cce37f01040010caaa5377fea7f1d409ab
->>>>>>> 7fd047a98330a9c08dc34b81ae7150142330640d
     },
     {
         "project_id": "3",
         "name": "珠海香洲近海光伏",
         "latitude": 22.270715,
         "longitude": 113.576722,
-<<<<<<< HEAD
         "city": "珠海市香洲区",  # 城市名称（用于显示）
-=======
-<<<<<<< HEAD
-        "city": "珠海市香洲区",  # 城市名称（用于显示）
-=======
-        "location_id": "101280701",  # 珠海 Location ID
-        "location_name": "珠海",  # 和风天气API查询用的地区名称
-        "city": "珠海市香洲区",  # 城市名称
->>>>>>> 811fe8cce37f01040010caaa5377fea7f1d409ab
->>>>>>> 7fd047a98330a9c08dc34b81ae7150142330640d
     },
 ]
 
