@@ -1,6 +1,6 @@
 import os
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime, timezone, timedelta
 
 import requests
@@ -17,14 +17,10 @@ logging.basicConfig(level=logging.INFO)
 # ------------------------------------------------------------------------------
 # 配置
 # ------------------------------------------------------------------------------
-QWEATHER_API_KEY = os.getenv("QWEATHER_API_KEY", "").strip()
-QWEATHER_API_HOST = os.getenv("QWEATHER_API_HOST", "").strip() or "https://devapi.qweather.com"
-WEATHER_DEFAULT_LOCATION = os.getenv("WEATHER_DEFAULT_LOCATION", "").strip()
 # 项目清单（可通过 WEATHER_PROJECTS_JSON / WEATHER_PROJECTS_FILE 覆盖）
 PROJECT_CATALOG: List[Dict[str, Any]] = get_project_catalog()
 
-if not QWEATHER_API_KEY:
-    logger.warning("QWEATHER_API_KEY 未设置，历史天气查询将失败。请在环境变量中配置。")
+logger.info("使用Open-Meteo作为历史天气数据源（完全免费，无需API Key）")
 
 # ------------------------------------------------------------------------------
 # 数据模型
@@ -63,61 +59,126 @@ def _find_project(project_id: Optional[str]) -> Optional[Dict[str, Any]]:
     return None
 
 
-def _ensure_location(location: Optional[str], project: Optional[Dict[str, Any]]) -> str:
-    if project:
-        loc_id = project.get("location_id")
-        loc_name = project.get("location_name") or project.get("city") or project.get("name")
-        if loc_id:
-            return str(loc_id)
-        if loc_name:
-            return str(loc_name)
-    if location:
-        return location
-    if WEATHER_DEFAULT_LOCATION:
-        return WEATHER_DEFAULT_LOCATION
-    raise HTTPException(status_code=400, detail="location 不能为空，且未设置 WEATHER_DEFAULT_LOCATION")
-
-
-def _fetch_history_from_qweather(location: str, date_str: str) -> List[Dict[str, Any]]:
+def _ensure_latitude_longitude(
+    latitude: Optional[float],
+    longitude: Optional[float],
+    project: Optional[Dict[str, Any]]
+) -> Tuple[float, float]:
     """
-    调用和风天气历史接口，返回原始小时数据列表。
-    说明：和风历史接口需付费权限，路径示例：
-    https://devapi.qweather.com/v7/historical/weather?location=xxx&date=YYYYMMDD
+    确保有有效的经纬度（Open-Meteo需要经纬度）
+    优先级：直接提供的经纬度 > 项目配置的经纬度
     """
-    if not QWEATHER_API_KEY:
-        raise HTTPException(status_code=500, detail="未配置 QWEATHER_API_KEY，无法查询历史天气")
+    lat = latitude
+    lon = longitude
+    
+    if lat is None or lon is None:
+        if project:
+            lat = project.get("latitude")
+            lon = project.get("longitude")
+    
+    if lat is None or lon is None:
+        raise HTTPException(
+            status_code=400,
+            detail="必须提供经纬度信息（latitude和longitude）。可以通过project_id自动获取，或直接提供latitude和longitude参数。"
+        )
+    
+    return float(lat), float(lon)
 
-    base = QWEATHER_API_HOST.rstrip("/")
-    url = f"{base}/v7/historical/weather"
+
+def _fetch_history_from_openmeteo(
+    latitude: float,
+    longitude: float,
+    date_str: str
+) -> List[Dict[str, Any]]:
+    """
+    使用Open-Meteo获取历史天气数据（完全免费，无需API Key）
+    
+    参数:
+        latitude: 纬度
+        longitude: 经度
+        date_str: 日期字符串，格式 YYYY-MM-DD
+    
+    返回:
+        格式化的历史天气数据列表
+    """
+    url = "https://archive-api.open-meteo.com/v1/archive"
     params = {
-        "location": location,
-        "date": date_str.replace("-", ""),  # YYYYMMDD
-        "key": QWEATHER_API_KEY,  # 兼容部分部署方式，若服务端要求 Header，可调整为 X-QW-Api-Key
+        "latitude": latitude,
+        "longitude": longitude,
+        "start_date": date_str,
+        "end_date": date_str,
+        "hourly": "temperature_2m,relative_humidity_2m,windspeed_10m,cloudcover,shortwave_radiation",
+        "timezone": "Asia/Shanghai",
     }
-
-    resp = requests.get(url, params=params, timeout=15)
+    
+    logger.info(f"调用Open-Meteo API: url={url}, latitude={latitude}, longitude={longitude}, date={date_str}")
+    
     try:
+        resp = requests.get(url, params=params, timeout=15)
+        resp.raise_for_status()
         data = resp.json()
-    except Exception:
-        data = {}
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Open-Meteo API请求失败: {e}")
+        raise Exception(f"Open-Meteo API请求失败: {str(e)}")
+    except Exception as e:
+        logger.error(f"Open-Meteo API响应解析失败: {e}")
+        raise Exception(f"Open-Meteo API响应解析失败: {str(e)}")
+    
+    # 检查是否有错误
+    if "error" in data:
+        error_msg = data.get("error", "Unknown error")
+        logger.error(f"Open-Meteo API返回错误: {error_msg}")
+        raise Exception(f"Open-Meteo API错误: {error_msg}")
+    
+    hourly = data.get("hourly", {})
+    if not hourly:
+        logger.warning("Open-Meteo API返回空数据")
+        return []
+    
+    times = hourly.get("time", [])
+    temps = hourly.get("temperature_2m", [])
+    hums = hourly.get("relative_humidity_2m", [])
+    winds = hourly.get("windspeed_10m", [])
+    clouds = hourly.get("cloudcover", [])
+    radiations = hourly.get("shortwave_radiation", [])
+    
+    result = []
+    for i, time_str in enumerate(times):
+        # 转换时间格式为ISO格式（UTC+8时区）
+        try:
+            # Open-Meteo返回的时间格式：2024-11-28T00:00
+            dt = datetime.fromisoformat(time_str.replace("Z", "+00:00"))
+            # 转换为UTC+8时区
+            dt_local = dt.astimezone(timezone(timedelta(hours=8)))
+            fx_time = dt_local.isoformat()
+        except Exception:
+            fx_time = time_str
+        
+        result.append({
+            "fxTime": fx_time,
+            "obsTime": fx_time,  # 兼容字段
+            "temp": temps[i] if i < len(temps) and temps[i] is not None else None,
+            "humidity": (hums[i] * 100) if i < len(hums) and hums[i] is not None else None,  # 转换为百分比
+            "windSpeed": winds[i] if i < len(winds) and winds[i] is not None else None,
+            "cloud": clouds[i] if i < len(clouds) and clouds[i] is not None else None,
+            "shortwave_radiation": radiations[i] if i < len(radiations) and radiations[i] is not None else None,
+        })
+    
+    logger.info(f"Open-Meteo API返回 {len(result)} 条历史天气数据")
+    return result
 
-    if resp.status_code != 200:
-        msg = data.get("message") or data.get("code") or f"http {resp.status_code}"
-        raise HTTPException(status_code=500, detail=f"和风历史接口失败: {msg}")
 
-    if str(data.get("code")) != "200":
-        raise HTTPException(status_code=500, detail=f"和风历史接口返回异常: {data.get('code')}")
-
-    hourly = data.get("hourly") or []
-    return hourly
-
-
-def _estimate_irradiance(hour_local: int, cloud: Optional[float]) -> float:
+def _estimate_irradiance(shortwave_radiation: Optional[float], hour_local: int, cloud: Optional[float] = None) -> float:
     """
-    简易辐照度估算：
-    - 仅在 6~18 点有辐照度
-    - 基准 1000 W/m2，按云量折减 (1 - cloud/100)
+    辐照度估算：
+    - 优先使用Open-Meteo提供的shortwave_radiation（短波辐射）
+    - 如果不可用，使用简易估算：仅在 6~18 点有辐照度，基准 1000 W/m2，按云量折减
     """
+    # 优先使用Open-Meteo提供的短波辐射数据
+    if shortwave_radiation is not None and shortwave_radiation >= 0:
+        return float(shortwave_radiation)
+    
+    # 降级到简易估算（通常不会用到，因为Open-Meteo总是提供shortwave_radiation）
     if hour_local < 6 or hour_local > 18:
         return 0.0
     cloud_ratio = 0.0 if cloud is None else min(max(cloud, 0), 100) / 100.0
@@ -145,6 +206,7 @@ def _convert_hourly(hourly: List[Dict[str, Any]], latitude: Optional[float], lon
         hum = h.get("humidity")
         wind = h.get("windSpeed")
         cloud = h.get("cloud")
+        radiation = h.get("shortwave_radiation")  # Open-Meteo提供的短波辐射
 
         try:
             temp = float(temp) if temp is not None else None
@@ -162,8 +224,12 @@ def _convert_hourly(hourly: List[Dict[str, Any]], latitude: Optional[float], lon
             cloud = float(cloud) if cloud is not None else None
         except Exception:
             cloud = None
+        try:
+            radiation = float(radiation) if radiation is not None else None
+        except Exception:
+            radiation = None
 
-        irr = _estimate_irradiance(hour_local, cloud)
+        irr = _estimate_irradiance(radiation, hour_local, cloud)
         irr_vals.append(irr)
 
         item = HistoryItem(
@@ -200,42 +266,80 @@ def _convert_hourly(hourly: List[Dict[str, Any]], latitude: Optional[float], lon
 # ------------------------------------------------------------------------------
 # FastAPI
 # ------------------------------------------------------------------------------
-app = FastAPI(title="ShuZhiYuan History Weather API", version="0.1.0")
+app = FastAPI(
+    title="ShuZhiYuan History Weather API",
+    version="1.0.0",
+    description="基于Open-Meteo免费API的历史天气数据服务，提供历史逐小时天气数据，包括温度、湿度、风速、云量、短波辐射等"
+)
 
 
 @app.get("/health")
 def health():
     return {
         "status": "ok",
-        "qweather_key": bool(QWEATHER_API_KEY),
-        "host": QWEATHER_API_HOST,
-        "default_location": WEATHER_DEFAULT_LOCATION or None,
-        "note": "提供历史逐小时天气 + 简易辐照度估算（6~18点按云量折减）"
+        "data_source": "Open-Meteo",
+        "note": "使用Open-Meteo免费API提供历史逐小时天气数据，包括温度、湿度、风速、云量、短波辐射等",
+        "projects_configured": len(PROJECT_CATALOG),
     }
 
 
 @app.get("/weather/history", response_model=HistoryResponse)
 def weather_history(
-    location: Optional[str] = Query(None, description="Location ID 或 城市名；若不传则用 WEATHER_DEFAULT_LOCATION"),
     date: Optional[str] = Query(None, description="YYYY-MM-DD；默认昨天"),
-    latitude: Optional[float] = Query(None, description="可选，用于后续精细估算"),
-    longitude: Optional[float] = Query(None, description="可选，用于后续精细估算"),
-    project_id: Optional[str] = Query(None, description="可选，传入项目ID/名称以使用预置经纬度和 location_id"),
+    latitude: Optional[float] = Query(None, description="纬度（必需，可通过project_id自动获取）"),
+    longitude: Optional[float] = Query(None, description="经度（必需，可通过project_id自动获取）"),
+    project_id: Optional[str] = Query(None, description="项目ID/名称，自动获取预置的经纬度信息"),
 ):
-    proj = _find_project(project_id)
+    """
+    查询历史天气数据（使用Open-Meteo免费API）
+    
+    必须提供经纬度信息，可以通过以下方式：
+    1. 直接提供latitude和longitude参数
+    2. 通过project_id自动获取（推荐）
+    """
+    try:
+        proj = _find_project(project_id)
+        
+        # 确保有有效的经纬度
+        lat, lon = _ensure_latitude_longitude(latitude, longitude, proj)
 
-    loc = _ensure_location(location, proj)
-    lat = latitude if latitude is not None else (proj.get("latitude") if proj else None)
-    lon = longitude if longitude is not None else (proj.get("longitude") if proj else None)
+        if not date:
+            date = (datetime.now(timezone.utc) + timedelta(hours=8) - timedelta(days=1)).strftime("%Y-%m-%d")
+        
+        # 验证日期格式
+        try:
+            date_obj = datetime.strptime(date, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"日期格式错误，应为 YYYY-MM-DD，收到: {date}")
+        
+        # 记录查询信息
+        logger.info(f"查询历史天气: date={date}, project_id={project_id}, latitude={lat}, longitude={lon}")
 
-    if not date:
-        date = (datetime.now(timezone.utc) + timedelta(hours=8) - timedelta(days=1)).strftime("%Y-%m-%d")
-
-    hourly = _fetch_history_from_qweather(loc, date)
-    resp = _convert_hourly(hourly, lat, lon)
-    resp.location = loc
-    resp.date = date
-    return resp
+        # 使用Open-Meteo获取历史天气数据
+        try:
+            hourly = _fetch_history_from_openmeteo(lat, lon, date)
+            logger.info(f"成功使用Open-Meteo API获取历史天气数据，共 {len(hourly)} 条")
+        except Exception as e:
+            logger.error(f"Open-Meteo API失败: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"无法获取历史天气数据：Open-Meteo API失败: {str(e)}"
+            )
+        
+        resp = _convert_hourly(hourly, lat, lon)
+        # 使用项目名称或经纬度作为location标识
+        if proj:
+            resp.location = proj.get("name", f"{lat},{lon}")
+        else:
+            resp.location = f"{lat},{lon}"
+        resp.date = date
+        
+        return resp
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"查询历史天气失败: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"查询历史天气失败: {str(e)}")
 
 
 if __name__ == "__main__":

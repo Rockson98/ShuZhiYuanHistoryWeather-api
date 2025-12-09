@@ -1,0 +1,327 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "数字院历史天气服务API",
+    "version": "1.0.0",
+    "description": "提供历史逐小时天气数据查询服务，用于Dify工作流中的历史功率预测模块。支持通过项目ID或地理位置查询历史天气数据，包括温度、湿度、风速、云量、辐照度等参数。\n\n**功能说明：**\n- 查询指定日期的历史逐小时天气数据\n- 支持通过项目ID自动获取预配置的地理位置信息\n- 自动估算辐照度数据（基于云量和时间）\n- 返回的数据可用于功率预测模型的输入\n\n**项目ID说明：**\n- 1: 台山海宴渔光互补项目\n- 2: 肇庆四会屋顶项目\n- 3: 珠海香洲近海光伏"
+  },
+  "servers": [
+    {
+      "url": "https://shuzhiyuanhistoryweather-api.onrender.com",
+      "description": "Render托管实例"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "健康检查",
+        "description": "检查服务状态和配置信息",
+        "operationId": "healthCheck",
+        "tags": ["系统"],
+        "responses": {
+          "200": {
+            "description": "服务状态",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "qweather_key": {
+                      "type": "boolean",
+                      "description": "QWeather API Key是否已配置"
+                    },
+                    "host": {
+                      "type": "string",
+                      "description": "QWeather API Host"
+                    },
+                    "default_location": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "默认地理位置"
+                    },
+                    "note": {
+                      "type": "string",
+                      "description": "服务说明"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/weather/history": {
+      "get": {
+        "summary": "查询历史天气数据",
+        "description": "获取指定日期和地理位置的历史逐小时天气数据，包括温度、湿度、风速、云量、辐照度等参数。支持通过项目ID自动获取预配置的地理位置信息。",
+        "operationId": "getHistoryWeather",
+        "tags": ["天气数据"],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "query",
+            "description": "项目ID或项目名称。如果提供，将使用预配置的地理位置信息（location_id、latitude、longitude）。可选值：1（台山海宴渔光互补项目）、2（肇庆四会屋顶项目）、3（珠海香洲近海光伏）",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          },
+          {
+            "name": "location",
+            "in": "query",
+            "description": "Location ID 或城市名称。如果不提供 project_id，则必须提供此参数。如果不提供且未设置默认位置，将返回错误。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "101280101"
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "description": "查询日期，格式：YYYY-MM-DD。如果不提供，默认查询昨天的数据。",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "example": "2024-11-28"
+          },
+          {
+            "name": "latitude",
+            "in": "query",
+            "description": "纬度（可选）。如果提供 project_id，将优先使用项目配置的纬度。用于后续精细的辐照度估算。",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "float",
+              "minimum": -90,
+              "maximum": 90
+            },
+            "example": 22.25
+          },
+          {
+            "name": "longitude",
+            "in": "query",
+            "description": "经度（可选）。如果提供 project_id，将优先使用项目配置的经度。用于后续精细的辐照度估算。",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "float",
+              "minimum": -180,
+              "maximum": 180
+            },
+            "example": 112.78
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功返回历史天气数据",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistoryResponse"
+                },
+                "example": {
+                  "location": "101280101",
+                  "date": "2024-11-28",
+                  "count": 24,
+                  "daily_avg_irradiance": 450.5,
+                  "items": [
+                    {
+                      "timestamp": "2024-11-28T00:00:00+08:00",
+                      "temperature": 18.5,
+                      "humidity": 0.75,
+                      "wind_speed": 2.3,
+                      "cloud": 20.0,
+                      "real_time_irradiance": 0.0,
+                      "daily_avg_irradiance": 450.5,
+                      "horizontal_irradiance": 0.0,
+                      "tilted_irradiance": 0.0,
+                      "sunshine": 0.8
+                    },
+                    {
+                      "timestamp": "2024-11-28T01:00:00+08:00",
+                      "temperature": 17.8,
+                      "humidity": 0.78,
+                      "wind_speed": 2.1,
+                      "cloud": 25.0,
+                      "real_time_irradiance": 0.0,
+                      "daily_avg_irradiance": 450.5,
+                      "horizontal_irradiance": 0.0,
+                      "tilted_irradiance": 0.0,
+                      "sunshine": 0.75
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "detail": {
+                      "type": "string",
+                      "example": "location 不能为空，且未设置 WEATHER_DEFAULT_LOCATION"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "detail": {
+                      "type": "string",
+                      "example": "查询历史天气失败: 未配置 QWEATHER_API_KEY，无法查询历史天气"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HistoryItem": {
+        "type": "object",
+        "description": "单小时历史天气数据项",
+        "required": ["timestamp"],
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "时间戳，ISO 8601格式，包含时区信息",
+            "example": "2024-11-28T12:00:00+08:00"
+          },
+          "temperature": {
+            "type": "number",
+            "format": "float",
+            "nullable": true,
+            "description": "温度（摄氏度）",
+            "example": 25.5
+          },
+          "humidity": {
+            "type": "number",
+            "format": "float",
+            "nullable": true,
+            "description": "相对湿度（0~1之间的小数，例如0.75表示75%）",
+            "minimum": 0,
+            "maximum": 1,
+            "example": 0.75
+          },
+          "wind_speed": {
+            "type": "number",
+            "format": "float",
+            "nullable": true,
+            "description": "风速（m/s）",
+            "example": 3.2
+          },
+          "cloud": {
+            "type": "number",
+            "format": "float",
+            "nullable": true,
+            "description": "云量（百分比，0~100）",
+            "minimum": 0,
+            "maximum": 100,
+            "example": 30.0
+          },
+          "real_time_irradiance": {
+            "type": "number",
+            "format": "float",
+            "nullable": true,
+            "description": "实时辐照度（W/m²），基于云量和时间估算",
+            "example": 450.0
+          },
+          "daily_avg_irradiance": {
+            "type": "number",
+            "format": "float",
+            "nullable": true,
+            "description": "日平均辐照度（W/m²）",
+            "example": 450.5
+          },
+          "horizontal_irradiance": {
+            "type": "number",
+            "format": "float",
+            "nullable": true,
+            "description": "水平面辐照度（W/m²）",
+            "example": 450.0
+          },
+          "tilted_irradiance": {
+            "type": "number",
+            "format": "float",
+            "nullable": true,
+            "description": "倾斜面辐照度（W/m²）",
+            "example": 520.0
+          },
+          "sunshine": {
+            "type": "number",
+            "format": "float",
+            "nullable": true,
+            "description": "简易日照度（1 - cloud/100），用于表示阳光强度",
+            "minimum": 0,
+            "maximum": 1,
+            "example": 0.7
+          }
+        }
+      },
+      "HistoryResponse": {
+        "type": "object",
+        "description": "历史天气数据响应",
+        "required": ["location", "date", "count", "items"],
+        "properties": {
+          "location": {
+            "type": "string",
+            "description": "查询使用的地理位置标识（Location ID 或城市名）",
+            "example": "101280101"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "查询日期，格式：YYYY-MM-DD",
+            "example": "2024-11-28"
+          },
+          "count": {
+            "type": "integer",
+            "description": "返回的小时数据条数（通常为24条，表示一天24小时）",
+            "example": 24
+          },
+          "items": {
+            "type": "array",
+            "description": "逐小时历史天气数据列表",
+            "items": {
+              "$ref": "#/components/schemas/HistoryItem"
+            }
+          },
+          "daily_avg_irradiance": {
+            "type": "number",
+            "format": "float",
+            "nullable": true,
+            "description": "日平均辐照度（W/m²）",
+            "example": 450.5
+          }
+        }
+      }
+    }
+  }
+}
+

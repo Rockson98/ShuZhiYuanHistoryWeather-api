@@ -6,10 +6,10 @@ services:
     startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
     plan: free
     envVars:
-      - key: QWEATHER_API_KEY
+      # 可选：自定义项目配置（JSON格式）
+      - key: WEATHER_PROJECTS_JSON
         sync: false
-      - key: QWEATHER_API_HOST
-        sync: false
-      - key: WEATHER_DEFAULT_LOCATION
+      # 可选：项目配置文件路径
+      - key: WEATHER_PROJECTS_FILE
         sync: false
 
