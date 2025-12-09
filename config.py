@@ -4,27 +4,28 @@ from pathlib import Path
 from typing import List, Dict, Any
 
 # 默认项目清单，可根据需要修改或用环境变量覆盖
+# 项目信息与 README.md 中的配置保持一致
 DEFAULT_PROJECTS: List[Dict[str, Any]] = [
     {
-        "project_id": "1001",
+        "project_id": "1",
         "name": "台山海宴渔光互补项目",
         "latitude": 21.755591,
         "longitude": 112.565857,
-        "location_id": "101281101",  # 示例 Location ID，可按需替换
+        "city": "江门市台山市",  # 城市名称（用于显示）
     },
     {
-        "project_id": "1002",
+        "project_id": "2",
         "name": "肇庆四会屋顶项目",
         "latitude": 23.376972,
         "longitude": 112.705725,
-        "location_id": "101280901",
+        "city": "肇庆市四会市",  # 城市名称（用于显示）
     },
     {
-        "project_id": "1003",
+        "project_id": "3",
         "name": "珠海香洲近海光伏",
         "latitude": 22.270715,
         "longitude": 113.576722,
-        "location_id": "101280701",
+        "city": "珠海市香洲区",  # 城市名称（用于显示）
     },
 ]
 
