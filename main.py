@@ -84,6 +84,10 @@ def _ensure_latitude_longitude(
     
     return float(lat), float(lon)
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 7fd047a98330a9c08dc34b81ae7150142330640d
 
 def _fetch_history_from_openmeteo(
     latitude: float,
@@ -102,6 +106,16 @@ def _fetch_history_from_openmeteo(
         格式化的历史天气数据列表
     """
     url = "https://archive-api.open-meteo.com/v1/archive"
+<<<<<<< HEAD
+=======
+=======
+    base = QWEATHER_API_HOST.rstrip("/")
+    # 确保 URL 包含协议前缀
+    if not base.startswith("http://") and not base.startswith("https://"):
+        base = f"https://{base}"
+    url = f"{base}/v7/historical/weather"
+>>>>>>> 811fe8cce37f01040010caaa5377fea7f1d409ab
+>>>>>>> 7fd047a98330a9c08dc34b81ae7150142330640d
     params = {
         "latitude": latitude,
         "longitude": longitude,
@@ -117,6 +131,10 @@ def _fetch_history_from_openmeteo(
         resp = requests.get(url, params=params, timeout=15)
         resp.raise_for_status()
         data = resp.json()
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 7fd047a98330a9c08dc34b81ae7150142330640d
     except requests.exceptions.RequestException as e:
         logger.error(f"Open-Meteo API请求失败: {e}")
         raise Exception(f"Open-Meteo API请求失败: {str(e)}")
@@ -166,6 +184,28 @@ def _fetch_history_from_openmeteo(
     
     logger.info(f"Open-Meteo API返回 {len(result)} 条历史天气数据")
     return result
+<<<<<<< HEAD
+=======
+=======
+    except Exception as e:
+        logger.error(f"和风API响应解析失败: {e}, status={resp.status_code}, text={resp.text[:200]}")
+        raise HTTPException(status_code=500, detail=f"和风API响应解析失败: {str(e)}")
+
+    if resp.status_code != 200:
+        msg = data.get("message") or data.get("code") or f"http {resp.status_code}"
+        logger.error(f"和风历史接口HTTP错误: status={resp.status_code}, response={data}")
+        raise HTTPException(status_code=500, detail=f"和风历史接口失败: {msg}")
+
+    api_code = str(data.get("code", ""))
+    if api_code != "200":
+        msg = data.get("message") or data.get("refer", {}) or f"code={api_code}"
+        logger.error(f"和风历史接口返回异常: code={api_code}, response={data}")
+        raise HTTPException(status_code=500, detail=f"和风历史接口返回异常: code={api_code}, message={msg}")
+
+    hourly = data.get("hourly") or []
+    return hourly
+>>>>>>> 811fe8cce37f01040010caaa5377fea7f1d409ab
+>>>>>>> 7fd047a98330a9c08dc34b81ae7150142330640d
 
 
 def _estimate_irradiance(shortwave_radiation: Optional[float], hour_local: int, cloud: Optional[float] = None) -> float:
@@ -290,6 +330,10 @@ def weather_history(
     longitude: Optional[float] = Query(None, description="经度（必需，可通过project_id自动获取）"),
     project_id: Optional[str] = Query(None, description="项目ID/名称，自动获取预置的经纬度信息"),
 ):
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 7fd047a98330a9c08dc34b81ae7150142330640d
     """
     查询历史天气数据（使用Open-Meteo免费API）
     
@@ -334,6 +378,27 @@ def weather_history(
             resp.location = f"{lat},{lon}"
         resp.date = date
         
+<<<<<<< HEAD
+=======
+=======
+    try:
+        proj = _find_project(project_id)
+
+        loc = _ensure_location(location, proj)
+        lat = latitude if latitude is not None else (proj.get("latitude") if proj else None)
+        lon = longitude if longitude is not None else (proj.get("longitude") if proj else None)
+
+        if not date:
+            date = (datetime.now(timezone.utc) + timedelta(hours=8) - timedelta(days=1)).strftime("%Y-%m-%d")
+
+        logger.info(f"查询历史天气: location={loc}, date={date}, project_id={project_id}")
+
+        hourly = _fetch_history_from_qweather(loc, date)
+        resp = _convert_hourly(hourly, lat, lon)
+        resp.location = loc
+        resp.date = date
+>>>>>>> 811fe8cce37f01040010caaa5377fea7f1d409ab
+>>>>>>> 7fd047a98330a9c08dc34b81ae7150142330640d
         return resp
     except HTTPException:
         raise
