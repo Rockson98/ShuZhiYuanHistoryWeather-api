@@ -23,7 +23,15 @@ curl https://shuzhiyuanhistoryweather-api.onrender.com/health
 
 ## 2. 查询历史天气（使用 project_id）
 ```bash
+<<<<<<< HEAD
 curl "https://shuzhiyuanhistoryweather-api.onrender.com/weather/history?project_id=1&date=2024-11-28"
+=======
+<<<<<<< HEAD
+curl "https://shuzhiyuanhistoryweather-api.onrender.com/weather/history?project_id=1&date=2024-11-28"
+=======
+curl "https://shuzhiyuanhistoryweather-api.onrender.com/weather/history?project_id=1001&date=2024-11-28"
+>>>>>>> fae5dcba1531764e105e513eb2ab2251a2f4eab0
+>>>>>>> 811fe8cce37f01040010caaa5377fea7f1d409ab
 ```
 
 ## 3. 查询历史天气（使用 location）
@@ -49,7 +57,15 @@ curl "https://shuzhiyuanhistoryweather-api.onrender.com/weather/history?latitude
 - **URL**: `https://shuzhiyuanhistoryweather-api.onrender.com/weather/history`
 - **Method**: `GET`
 - **Query Parameters**:
+<<<<<<< HEAD
   - `project_id`: 项目ID（如 `1`）
+=======
+<<<<<<< HEAD
+  - `project_id`: 项目ID（如 `1`）
+=======
+  - `project_id`: 项目ID（如 `1001`）
+>>>>>>> fae5dcba1531764e105e513eb2ab2251a2f4eab0
+>>>>>>> 811fe8cce37f01040010caaa5377fea7f1d409ab
   - `date`: 日期（如 `2024-11-28`）
 
 或者使用 `location` 参数：

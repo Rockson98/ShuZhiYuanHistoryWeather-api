@@ -3,7 +3,11 @@
 ## 前置条件
 1. 已创建 GitHub 仓库：`ShuZhiYuanHistoryWeather-api-1`
 2. 已拥有 Render 账号（https://render.com）
+<<<<<<< HEAD
 3. ✅ **无需API Key**：使用Open-Meteo免费API，完全免费
+=======
+3. 已获取和风天气 API Key（需要历史数据额度）
+>>>>>>> 811fe8cce37f01040010caaa5377fea7f1d409ab
 
 ## 部署步骤
 
@@ -26,17 +30,34 @@
    - 服务名称：`shuzhiyuan-history-weather`
    - 构建命令和启动命令会自动应用
 
+<<<<<<< HEAD
 4. **配置环境变量（可选）**
    - 在 Render Dashboard 中，进入你的服务页面
    - 点击左侧 "Environment" 标签
    - 以下环境变量为**可选**，通常不需要配置：
    
    **可选环境变量：**
+=======
+4. **配置环境变量**
+   - 在 Render Dashboard 中，进入你的服务页面
+   - 点击左侧 "Environment" 标签
+   - 添加以下环境变量：
+   
+   **必需环境变量：**
+   - `QWEATHER_API_KEY`: 你的和风天气 API Key
+   
+   **可选环境变量：**
+   - `QWEATHER_API_HOST`: 和风天气 API 主机（默认：`https://devapi.qweather.com`）
+<<<<<<< HEAD
+     - **注意**：如果只提供域名（如 `jp4bjaf454.re.qweatherapi.com`），代码会自动添加 `https://` 前缀
+   - `WEATHER_DEFAULT_LOCATION`: 默认 Location ID（当不传 `project_id` 或 `location` 时使用）
+>>>>>>> 811fe8cce37f01040010caaa5377fea7f1d409ab
    - `WEATHER_PROJECTS_JSON`: 项目配置 JSON 字符串（可选，覆盖 `config.py` 中的默认项目）
    - `WEATHER_PROJECTS_FILE`: 项目配置 JSON 文件路径（可选，优先级高于 `WEATHER_PROJECTS_JSON`）
    
    **预配置项目（无需额外配置）：**
    
+<<<<<<< HEAD
    以下三个项目已预配置在 `config.py` 中，可直接使用 `project_id` 参数查询，自动获取经纬度信息：
    
    | project_id | 项目名称 | 纬度 | 经度 |
@@ -52,6 +73,23 @@
    
    # 方式2：直接提供经纬度
    curl "https://shuzhiyuanhistoryweather-api.onrender.com/weather/history?latitude=21.755591&longitude=112.565857&date=2024-11-28"
+=======
+   以下三个项目已预配置在 `config.py` 中，可直接使用 `project_id` 参数查询，无需手动输入经纬度和位置信息：
+   
+   | project_id | 项目名称 | 纬度 | 经度 | Location ID |
+   |-----------|---------|------|------|-------------|
+   | 1 | 台山海宴渔光互补项目 | 21.755591 | 112.565857 | 101281101 |
+   | 2 | 肇庆四会屋顶项目 | 23.376972 | 112.705725 | 101280901 |
+   | 3 | 珠海香洲近海光伏 | 22.270715 | 113.576722 | 101280701 |
+   
+   **使用示例：**
+   ```bash
+   # 使用 project_id 查询（推荐，自动使用预配置的地理信息）
+   curl "https://shuzhiyuanhistoryweather-api.onrender.com/weather/history?project_id=1&date=2024-11-28"
+   
+   # 或使用 location 参数（需要手动提供位置信息）
+   curl "https://shuzhiyuanhistoryweather-api.onrender.com/weather/history?location=101281101&date=2024-11-28"
+>>>>>>> 811fe8cce37f01040010caaa5377fea7f1d409ab
    ```
    
    **WEATHER_PROJECTS_JSON 格式示例（如需覆盖默认配置）：**
@@ -62,10 +100,16 @@
        "name": "台山海宴渔光互补项目",
        "latitude": 21.755591,
        "longitude": 112.565857,
+<<<<<<< HEAD
+=======
+       "location_id": "101281101",
+       "location_name": "台山",
+>>>>>>> 811fe8cce37f01040010caaa5377fea7f1d409ab
        "city": "江门市台山市"
      },
      {
        "project_id": "2",
+<<<<<<< HEAD
        "name": "肇庆四会屋顶项目",
        "latitude": 23.376972,
        "longitude": 112.705725
@@ -76,6 +120,33 @@
    > - 如果使用环境变量，需要将整个 JSON 数组压缩为一行，去掉换行和多余空格
    > - `location_id` 和 `location_name` 字段已不再需要（Open-Meteo不需要）
    > - 只需要 `latitude` 和 `longitude` 字段
+=======
+=======
+   - `WEATHER_DEFAULT_LOCATION`: 默认 Location ID（当不传 `project_id` 或 `location` 时使用）
+   - `WEATHER_PROJECTS_JSON`: 项目配置 JSON 字符串（可选，覆盖 `config.py` 中的默认项目）
+   
+   **WEATHER_PROJECTS_JSON 格式示例：**
+   ```json
+   [
+     {
+       "project_id": "1001",
+       "name": "台山海宴渔光互补项目",
+       "latitude": 21.755591,
+       "longitude": 112.565857,
+       "location_id": "101281101"
+     },
+     {
+       "project_id": "1002",
+>>>>>>> fae5dcba1531764e105e513eb2ab2251a2f4eab0
+       "name": "肇庆四会屋顶项目",
+       "latitude": 23.376972,
+       "longitude": 112.705725,
+       "location_id": "101280901"
+     }
+   ]
+   ```
+   > 注意：如果使用环境变量，需要将整个 JSON 数组压缩为一行，去掉换行和多余空格。
+>>>>>>> 811fe8cce37f01040010caaa5377fea7f1d409ab
 
 5. **部署**
    - 点击 "Save Changes"
@@ -89,9 +160,15 @@
      ```json
      {
        "status": "ok",
+<<<<<<< HEAD
        "data_source": "Open-Meteo",
        "note": "使用Open-Meteo免费API提供历史逐小时天气数据，包括温度、湿度、风速、云量、短波辐射等",
        "projects_configured": 3
+=======
+       "qweather_key": true,
+       "host": "https://devapi.qweather.com",
+       "default_location": null,
+>>>>>>> 811fe8cce37f01040010caaa5377fea7f1d409ab
        "note": "提供历史逐小时天气 + 简易辐照度估算（6~18点按云量折减）"
      }
      ```
@@ -127,6 +204,7 @@
 curl https://你的服务URL/health
 ```
 
+<<<<<<< HEAD
 ### 2. 查询历史天气（使用 project_id，推荐）
 ```bash
 curl "https://你的服务URL/weather/history?project_id=1&date=2024-11-28"
@@ -135,6 +213,20 @@ curl "https://你的服务URL/weather/history?project_id=1&date=2024-11-28"
 ### 3. 查询历史天气（直接提供经纬度）
 ```bash
 curl "https://你的服务URL/weather/history?latitude=21.755591&longitude=112.565857&date=2024-11-28"
+=======
+### 2. 查询历史天气（使用 project_id）
+```bash
+<<<<<<< HEAD
+curl "https://你的服务URL/weather/history?project_id=1&date=2024-11-28"
+=======
+curl "https://你的服务URL/weather/history?project_id=1001&date=2024-11-28"
+>>>>>>> fae5dcba1531764e105e513eb2ab2251a2f4eab0
+```
+
+### 3. 查询历史天气（使用 location）
+```bash
+curl "https://你的服务URL/weather/history?location=101281101&date=2024-11-28"
+>>>>>>> 811fe8cce37f01040010caaa5377fea7f1d409ab
 ```
 
 ## 常见问题
@@ -144,10 +236,16 @@ curl "https://你的服务URL/weather/history?latitude=21.755591&longitude=112.5
 - 确保 `main.py` 和 `config.py` 文件格式正确
 
 ### 2. API 返回 500 错误
+<<<<<<< HEAD
 - 检查是否提供了有效的经纬度（latitude 和 longitude）
 - 检查日期格式是否正确（YYYY-MM-DD）
 - 检查日期是否在合理范围内（Open-Meteo支持过去80年的历史数据）
 - 查看 Render 的日志（Logs 标签）获取详细错误信息
+=======
+- 检查 `QWEATHER_API_KEY` 是否正确设置
+- 检查是否有历史数据查询额度
+- 查看 Render 的日志（Logs 标签）
+>>>>>>> 811fe8cce37f01040010caaa5377fea7f1d409ab
 
 ### 3. 找不到项目（project_id 无效）
 - 检查 `WEATHER_PROJECTS_JSON` 环境变量格式是否正确
