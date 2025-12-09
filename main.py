@@ -8,8 +8,11 @@ from dateutil import parser as date_parser
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 
+from config import get_project_catalog
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
 
 # ------------------------------------------------------------------------------
 # 配置
@@ -17,6 +20,8 @@ logging.basicConfig(level=logging.INFO)
 QWEATHER_API_KEY = os.getenv("QWEATHER_API_KEY", "").strip()
 QWEATHER_API_HOST = os.getenv("QWEATHER_API_HOST", "").strip() or "https://devapi.qweather.com"
 WEATHER_DEFAULT_LOCATION = os.getenv("WEATHER_DEFAULT_LOCATION", "").strip()
+# 项目清单（可通过 WEATHER_PROJECTS_JSON / WEATHER_PROJECTS_FILE 覆盖）
+PROJECT_CATALOG: List[Dict[str, Any]] = get_project_catalog()
 
 if not QWEATHER_API_KEY:
     logger.warning("QWEATHER_API_KEY 未设置，历史天气查询将失败。请在环境变量中配置。")
@@ -48,7 +53,24 @@ class HistoryResponse(BaseModel):
 # ------------------------------------------------------------------------------
 # 工具函数
 # ------------------------------------------------------------------------------
-def _ensure_location(location: Optional[str]) -> str:
+def _find_project(project_id: Optional[str]) -> Optional[Dict[str, Any]]:
+    if not project_id:
+        return None
+    pid = str(project_id)
+    for p in PROJECT_CATALOG:
+        if str(p.get("project_id")) == pid or p.get("name") == project_id:
+            return p
+    return None
+
+
+def _ensure_location(location: Optional[str], project: Optional[Dict[str, Any]]) -> str:
+    if project:
+        loc_id = project.get("location_id")
+        loc_name = project.get("location_name") or project.get("city") or project.get("name")
+        if loc_id:
+            return str(loc_id)
+        if loc_name:
+            return str(loc_name)
     if location:
         return location
     if WEATHER_DEFAULT_LOCATION:
@@ -70,7 +92,7 @@ def _fetch_history_from_qweather(location: str, date_str: str) -> List[Dict[str,
     params = {
         "location": location,
         "date": date_str.replace("-", ""),  # YYYYMMDD
-        "key": QWEATHER_API_KEY,  # 兼容部分部署方式；若服务端要求 Header，可调整为 X-QW-Api-Key
+        "key": QWEATHER_API_KEY,  # 兼容部分部署方式，若服务端要求 Header，可调整为 X-QW-Api-Key
     }
 
     resp = requests.get(url, params=params, timeout=15)
@@ -115,8 +137,7 @@ def _convert_hourly(hourly: List[Dict[str, Any]], latitude: Optional[float], lon
             dt = date_parser.parse(ts_raw)
         except Exception:
             continue
-
-        # 统一为本地时间（UTC+8）
+        # 统一为本地时间（若 API 返回 UTC，dateutil 会携带 tz）
         dt_local = dt.astimezone(timezone(timedelta(hours=8)))
         hour_local = dt_local.hour
 
@@ -182,31 +203,14 @@ def _convert_hourly(hourly: List[Dict[str, Any]], latitude: Optional[float], lon
 app = FastAPI(title="ShuZhiYuan History Weather API", version="0.1.0")
 
 
-# ✅ 新增：根路径，避免 Render/浏览器访问 / 时 404
-@app.get("/")
-def root():
-    return {
-        "name": "ShuZhiYuan History Weather API",
-        "status": "ok",
-        "endpoints": {
-            "health": "/health",
-            "docs": "/docs",
-            "history": "/weather/history?location=101010100&date=2025-12-07",
-        },
-        "note": "部署在 Render 上时建议将 Health Check Path 设置为 /health",
-    }
-
-
 @app.get("/health")
 def health():
-    # ✅ 可选：没配 key 也返回 200，只是标记 degraded，保证健康检查稳定通过
-    status = "ok" if QWEATHER_API_KEY else "degraded"
     return {
-        "status": status,
-        "qweather_key_configured": bool(QWEATHER_API_KEY),
+        "status": "ok",
+        "qweather_key": bool(QWEATHER_API_KEY),
         "host": QWEATHER_API_HOST,
         "default_location": WEATHER_DEFAULT_LOCATION or None,
-        "note": "提供历史逐小时天气 + 简易辐照度估算（6~18点按云量折减）",
+        "note": "提供历史逐小时天气 + 简易辐照度估算（6~18点按云量折减）"
     }
 
 
@@ -216,13 +220,19 @@ def weather_history(
     date: Optional[str] = Query(None, description="YYYY-MM-DD；默认昨天"),
     latitude: Optional[float] = Query(None, description="可选，用于后续精细估算"),
     longitude: Optional[float] = Query(None, description="可选，用于后续精细估算"),
+    project_id: Optional[str] = Query(None, description="可选，传入项目ID/名称以使用预置经纬度和 location_id"),
 ):
-    loc = _ensure_location(location)
+    proj = _find_project(project_id)
+
+    loc = _ensure_location(location, proj)
+    lat = latitude if latitude is not None else (proj.get("latitude") if proj else None)
+    lon = longitude if longitude is not None else (proj.get("longitude") if proj else None)
+
     if not date:
         date = (datetime.now(timezone.utc) + timedelta(hours=8) - timedelta(days=1)).strftime("%Y-%m-%d")
 
     hourly = _fetch_history_from_qweather(loc, date)
-    resp = _convert_hourly(hourly, latitude, longitude)
+    resp = _convert_hourly(hourly, lat, lon)
     resp.location = loc
     resp.date = date
     return resp
@@ -230,6 +240,5 @@ def weather_history(
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8001)))
 
