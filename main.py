@@ -88,6 +88,9 @@ def _fetch_history_from_qweather(location: str, date_str: str) -> List[Dict[str,
         raise HTTPException(status_code=500, detail="未配置 QWEATHER_API_KEY，无法查询历史天气")
 
     base = QWEATHER_API_HOST.rstrip("/")
+    # 确保 URL 包含协议前缀
+    if not base.startswith("http://") and not base.startswith("https://"):
+        base = f"https://{base}"
     url = f"{base}/v7/historical/weather"
     params = {
         "location": location,
@@ -98,15 +101,20 @@ def _fetch_history_from_qweather(location: str, date_str: str) -> List[Dict[str,
     resp = requests.get(url, params=params, timeout=15)
     try:
         data = resp.json()
-    except Exception:
-        data = {}
+    except Exception as e:
+        logger.error(f"和风API响应解析失败: {e}, status={resp.status_code}, text={resp.text[:200]}")
+        raise HTTPException(status_code=500, detail=f"和风API响应解析失败: {str(e)}")
 
     if resp.status_code != 200:
         msg = data.get("message") or data.get("code") or f"http {resp.status_code}"
+        logger.error(f"和风历史接口HTTP错误: status={resp.status_code}, response={data}")
         raise HTTPException(status_code=500, detail=f"和风历史接口失败: {msg}")
 
-    if str(data.get("code")) != "200":
-        raise HTTPException(status_code=500, detail=f"和风历史接口返回异常: {data.get('code')}")
+    api_code = str(data.get("code", ""))
+    if api_code != "200":
+        msg = data.get("message") or data.get("refer", {}) or f"code={api_code}"
+        logger.error(f"和风历史接口返回异常: code={api_code}, response={data}")
+        raise HTTPException(status_code=500, detail=f"和风历史接口返回异常: code={api_code}, message={msg}")
 
     hourly = data.get("hourly") or []
     return hourly
@@ -222,20 +230,28 @@ def weather_history(
     longitude: Optional[float] = Query(None, description="可选，用于后续精细估算"),
     project_id: Optional[str] = Query(None, description="可选，传入项目ID/名称以使用预置经纬度和 location_id"),
 ):
-    proj = _find_project(project_id)
+    try:
+        proj = _find_project(project_id)
 
-    loc = _ensure_location(location, proj)
-    lat = latitude if latitude is not None else (proj.get("latitude") if proj else None)
-    lon = longitude if longitude is not None else (proj.get("longitude") if proj else None)
+        loc = _ensure_location(location, proj)
+        lat = latitude if latitude is not None else (proj.get("latitude") if proj else None)
+        lon = longitude if longitude is not None else (proj.get("longitude") if proj else None)
 
-    if not date:
-        date = (datetime.now(timezone.utc) + timedelta(hours=8) - timedelta(days=1)).strftime("%Y-%m-%d")
+        if not date:
+            date = (datetime.now(timezone.utc) + timedelta(hours=8) - timedelta(days=1)).strftime("%Y-%m-%d")
 
-    hourly = _fetch_history_from_qweather(loc, date)
-    resp = _convert_hourly(hourly, lat, lon)
-    resp.location = loc
-    resp.date = date
-    return resp
+        logger.info(f"查询历史天气: location={loc}, date={date}, project_id={project_id}")
+
+        hourly = _fetch_history_from_qweather(loc, date)
+        resp = _convert_hourly(hourly, lat, lon)
+        resp.location = loc
+        resp.date = date
+        return resp
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"查询历史天气失败: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"查询历史天气失败: {str(e)}")
 
 
 if __name__ == "__main__":
